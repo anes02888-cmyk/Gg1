@@ -17,20 +17,41 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Install Dependencies
+    - name: Locate project files & Install
       run: |
-        npm install
+        if (Test-Path "package.json") {
+            npm install
+        } elseif (Test-Path "src/package.json") {
+            cd src
+            npm install
+        } else {
+            $json = Get-ChildItem -Recurse -Filter "package.json" | Select-Object -First 1
+            if ($json) {
+                Set-Location $json.Directory.FullName
+                npm install
+            }
+        }
 
     - name: Build Web App
       run: |
-        npm run build --if-present
+        $json = Get-ChildItem -Recurse -Filter "package.json" | Select-Object -First 1
+        if ($json) {
+            Set-Location $json.Directory.FullName
+            npm run build --if-present
+        }
 
-    - name: Package with Electron
+    - name: Package App to EXE
       run: |
-        npx --yes nativefier --name "VoiceForgeApp" "./dist" --single-instance
+        $json = Get-ChildItem -Recurse -Filter "package.json" | Select-Object -First 1
+        if ($json) {
+            Set-Location $json.Directory.FullName
+            npx --yes nativefier --name "VoiceForgeApp" "." --single-instance
+        }
 
-    - name: Upload App For Download
+    - name: Upload Executable Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: My-Executable-App
-        path: VoiceForgeApp-win32-x64
+        name: VoiceForge-Executable-App
+        path: |
+          **/*win32-x64*
+          **/*.exe
