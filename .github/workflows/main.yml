@@ -7,51 +7,53 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout Repository
+      uses: actions/checkout@v3
 
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
 
-    - name: Locate project files & Install
+    - name: Unzip Project File
       run: |
-        if (Test-Path "package.json") {
-            npm install
-        } elseif (Test-Path "src/package.json") {
-            cd src
-            npm install
-        } else {
-            $json = Get-ChildItem -Recurse -Filter "package.json" | Select-Object -First 1
-            if ($json) {
-                Set-Location $json.Directory.FullName
-                npm install
-            }
-        }
+        if [ -f "-llamacoder.zip" ]; then
+          unzip -q -o "-llamacoder.zip" -d extracted_app
+        else
+          echo "Zip file not found, using root directory"
+          mkdir -p extracted_app
+          cp -r ./* extracted_app/ 2>/dev/null || true
+        fi
 
-    - name: Build Web App
+    - name: Find Project Root and Install
       run: |
-        $json = Get-ChildItem -Recurse -Filter "package.json" | Select-Object -First 1
-        if ($json) {
-            Set-Location $json.Directory.FullName
-            npm run build --if-present
-        }
+        PKG_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
+        if [ -n "$PKG_PATH" ]; then
+          TARGET_DIR=$(dirname "$PKG_PATH")
+          echo "Found package.json in $TARGET_DIR"
+          cd "$TARGET_DIR"
+          npm install
+          npm run build --if-present
+        else
+          echo "ERROR: package.json not found anywhere!"
+          exit 1
+        fi
 
-    - name: Package App to EXE
+    - name: Create Web Output Package
       run: |
-        $json = Get-ChildItem -Recurse -Filter "package.json" | Select-Object -First 1
-        if ($json) {
-            Set-Location $json.Directory.FullName
-            npx --yes nativefier --name "VoiceForgeApp" "." --single-instance
-        }
+        mkdir -p release_output
+        DIST_DIR=$(find . -type d \( -name "dist" -o -name "build" \) -not -path "*/node_modules/*" | head -n 1)
+        if [ -n "$DIST_DIR" ]; then
+          cp -r "$DIST_DIR"/* release_output/
+        else
+          cp -r ./* release_output/ 2>/dev/null || true
+        fi
 
-    - name: Upload Executable Artifact
+    - name: Upload Built App Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: VoiceForge-Executable-App
-        path: |
-          **/*win32-x64*
-          **/*.exe
+        name: VoiceForge-Built-App
+        path: release_output/
