@@ -17,16 +17,28 @@ jobs:
       with:
         node-version: 18
 
-    - name: Install Dependencies
-      run: npm install
+    - name: Find Project Root & Install
+      run: |
+        # البحث عن ملف package.json والدخول لمجلده تلقائياً
+        TARGET_DIR=$(dirname $(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1))
+        echo "Project found in: $TARGET_DIR"
+        cd "$TARGET_DIR"
+        npm install
+        npm run build --if-present
 
-    - name: Build Web Project
-      run: npm run build
+    - name: Prepare Artifact
+      run: |
+        mkdir -p output_app
+        # نقل مجلد dist أو build الناتج
+        DIST_PATH=$(find . -type d \( -name "dist" -o -name "build" \) -not -path "*/node_modules/*" | head -n 1)
+        if [ -n "$DIST_PATH" ]; then
+          cp -r "$DIST_PATH"/* output_app/
+        else
+          cp -r ./* output_app/ 2>/dev/null || true
+        fi
 
-    - name: Upload Output
+    - name: Upload Built App
       uses: actions/upload-artifact@v4
       with:
         name: VoiceForge-Built-App
-        path: |
-          dist
-          build
+        path: output_app/
