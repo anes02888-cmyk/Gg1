@@ -10,50 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
+    - name: Setup Node
+      uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: 18
 
-    - name: Unzip Project File
-      run: |
-        if [ -f "-llamacoder.zip" ]; then
-          unzip -q -o "-llamacoder.zip" -d extracted_app
-        else
-          echo "Zip file not found, using root directory"
-          mkdir -p extracted_app
-          cp -r ./* extracted_app/ 2>/dev/null || true
-        fi
+    - name: Install Dependencies
+      run: npm install
 
-    - name: Find Project Root and Install
-      run: |
-        PKG_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
-        if [ -n "$PKG_PATH" ]; then
-          TARGET_DIR=$(dirname "$PKG_PATH")
-          echo "Found package.json in $TARGET_DIR"
-          cd "$TARGET_DIR"
-          npm install
-          npm run build --if-present
-        else
-          echo "ERROR: package.json not found anywhere!"
-          exit 1
-        fi
+    - name: Build Web Project
+      run: npm run build
 
-    - name: Create Web Output Package
-      run: |
-        mkdir -p release_output
-        DIST_DIR=$(find . -type d \( -name "dist" -o -name "build" \) -not -path "*/node_modules/*" | head -n 1)
-        if [ -n "$DIST_DIR" ]; then
-          cp -r "$DIST_DIR"/* release_output/
-        else
-          cp -r ./* release_output/ 2>/dev/null || true
-        fi
-
-    - name: Upload Built App Artifact
-      uses: actions/upload-artifact@v3
+    - name: Upload Output
+      uses: actions/upload-artifact@v4
       with:
         name: VoiceForge-Built-App
-        path: release_output/
+        path: |
+          dist
+          build
